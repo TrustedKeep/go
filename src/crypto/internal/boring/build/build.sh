@@ -29,7 +29,7 @@ sudo umount -f $chroot/dev
 set -e
 if [ "$1" != "-quick" ]; then
 	sudo rm -rf $chroot
-	sudo http_proxy=$http_proxy debootstrap --variant=minbase disco $chroot
+	sudo http_proxy=$http_proxy debootstrap --variant=minbase bionic $chroot
 fi
 
 sudo chown $(whoami) $chroot
@@ -44,14 +44,7 @@ sudo cp sources.list $chroot/etc/apt/sources.list
 
 cp *chroot.sh $chroot
 
-# Following https://csrc.nist.gov/CSRC/media/projects/cryptographic-module-validation-program/documents/security-policies/140sp3318.pdf page 19.
-if [ ! -e $chroot/boringssl-66005f41fbc3529ffe8d007708756720529da20d.tar.xz ]; then
-	wget -O $chroot/boringssl-66005f41fbc3529ffe8d007708756720529da20d.tar.xz https://commondatastorage.googleapis.com/chromium-boringssl-docs/fips/boringssl-66005f41fbc3529ffe8d007708756720529da20d.tar.xz
-fi
-if [ "$(sha256sum $chroot/boringssl-66005f41fbc3529ffe8d007708756720529da20d.tar.xz | awk '{print $1}')" != b12ad676ee533824f698741bd127f6fbc82c46344398a6d78d25e62c6c418c73 ]; then
-	echo WRONG SHA256SUM
-	exit 2
-fi
+cp /root/boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz $chroot
 
 rm -rf $chroot/godriver
 mkdir $chroot/godriver

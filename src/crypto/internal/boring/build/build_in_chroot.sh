@@ -12,38 +12,28 @@ unset LANGUAGE
 
 # Build BoringCrypto libcrypto.a.
 # Following https://csrc.nist.gov/CSRC/media/projects/cryptographic-module-validation-program/documents/security-policies/140sp3318.pdf page 19.
-if ! [ -e ./boringssl/build/tool/bssl ]; then
-	export PATH=$PATH:/usr/lib/go-1.10/bin:/clangbin
 
-	# Go requires -fPIC for linux/amd64 cgo builds.
-	# Setting -fPIC only affects the compilation of the non-module code in libcrypto.a,
-	# because the FIPS module itself is already built with -fPIC.
-	mkdir /clangbin
-	echo '#!/bin/bash
-	exec clang-6.0 -fPIC "$@"
-	' >/clangbin/clang
-	echo '#!/bin/bash
-	exec clang++-6.0 -fPIC "$@"
-	' >/clangbin/clang++
-	chmod +x /clangbin/clang /clangbin/clang++
+export PATH=$PATH:/usr/local/go/bin:/clangbin
 
-	rm -rf boringssl
-	tar xJf ../boringssl-*z
-	cd boringssl
+# Go requires -fPIC for linux/amd64 cgo builds.
+# Setting -fPIC only affects the compilation of the non-module code in libcrypto.a,
+# because the FIPS module itself is already built with -fPIC.
+mkdir /clangbin
+echo '#!/bin/bash
+exec clang-6.0 -fPIC "$@"
+' >/clangbin/clang
+echo '#!/bin/bash
+exec clang++-6.0 -fPIC "$@"
+' >/clangbin/clang++
+chmod +x /clangbin/clang /clangbin/clang++
 
-	# Verbatim instructions from BoringCrypto build docs.
-	printf "set(CMAKE_C_COMPILER \"clang\")\nset(CMAKE_CXX_COMPILER \"clang++\")\n" >${HOME}/toolchain
-	mkdir build && cd build && cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=${HOME}/toolchain -DFIPS=1 -DCMAKE_BUILD_TYPE=Release ..
-	ninja
-	ninja run_tests
+rm -rf boringssl
+tar xJf ../boringssl-*z
 
-	cd ../..
-fi
 if [ "$(./boringssl/build/tool/bssl isfips)" != 1 ]; then
 	echo "NOT FIPS"
 	exit 2
 fi
-
 
 # Build and run test C++ program to make sure goboringcrypto.h matches openssl/*.h.
 # Also collect list of checked symbols in syms.txt
