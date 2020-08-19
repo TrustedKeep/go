@@ -51,25 +51,35 @@ setupBoring() {
 
     cd ../..
     message "Creating BoringSSL archive"
-    tar -cJf boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz boringssl
+    tar --exclude '.git' -cJf boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz boringssl
     mv boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz /root
 }
 
 setupBoringGo() {
     message "Retrieving Golang+BoringSSL"
 
+    # TODO: Need SSH key to do this
     cd $GOPATH/src
     mkdir -p github.com
     cd github.com
     git clone git@github.com:TrustedKeep/go
     cd go
-    git checkout develop
-}
+    git checkout tkgo1.15
 
-# TODO: need to build crypto module in src/crypto/internal/boring/build using new boring
-# TODO: build golang
-# export GOROOT_BOOTSTRAP=/usr/local/go/
-# go/src/all.bash
+    message "Building GoBoring crypto module"
+    cd src/crypto/internal/boring/build
+    ./build.sh
+
+    message "Building Golang tools"
+    cd $GOPATH/src/github.com/go/src
+    ./all.bash
+
+    message "Building dist package"
+    cd ../../
+
+    tar --exclude '.git' --exclude 'pkg/obj' -czvf boringgo.1.15.tgz go
+    mv boringgo.1.15.tgz /root
+}
 
 # installLibs
 # installGo
