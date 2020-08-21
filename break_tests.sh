@@ -70,7 +70,9 @@ buildAndTest() {
 }
 
 setupEnv
+echo "Starting tests `date`"
 buildAndTest
 for bt in $BREAK_TESTS; do
     buildAndTest $bt
 done
+echo "Complete `date`"
