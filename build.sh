@@ -58,7 +58,7 @@ setupBoring() {
 setupBoringGo() {
     message "Retrieving Golang+BoringSSL"
 
-    # TODO: Need SSH key to do this
+    # Need SSH key to do this
     cd $GOPATH/src
     mkdir -p github.com
     cd github.com
@@ -78,10 +78,10 @@ setupBoringGo() {
     cd ../../
 
     tar --exclude '.git' --exclude 'pkg/obj' -czvf boringgo.1.15.tgz go
-    mv boringgo.1.15.tgz /root
+    mv boringgo.1.15.2.tgz /root
 }
 
-# installLibs
-# installGo
-# setupBoring
-# setupBoringGo
+installLibs
+installGo
+setupBoring
+setupBoringGo
