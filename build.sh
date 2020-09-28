@@ -2,6 +2,7 @@
 
 mkdir -p /root/sandbox/src
 
+export GOZIP=boringgo.1.15.2.tgz
 export GOPATH=/root/sandbox
 
 # Helper functions
@@ -77,8 +78,9 @@ setupBoringGo() {
     message "Building dist package"
     cd ../../
 
-    tar --exclude '.git' --exclude 'pkg/obj' -czvf boringgo.1.15.tgz go
-    mv boringgo.1.15.2.tgz /root
+    tar --exclude '.git' --exclude 'pkg/obj' -czvf $GOZIP go
+    mv $GOZIP /root
+    sha256sum /root/$GOZIP
 }
 
 installLibs
