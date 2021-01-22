@@ -1,89 +1,74 @@
 #! /bin/bash
 
-mkdir -p /root/sandbox/src
+#TODO: use t2.xlarge
+#TODO: copy finished file down
+#TODO: destory ec2
 
-export GOZIP=boringgo.1.15.6.tgz
-export GOPATH=/root/sandbox
+keyName="schafke"
+instanceType="t2.micro"
+amiId="ami-0cac0a7e7f05274f6" # ubuntu bionic
+securityGroup="sg-082bee86921c47240"
+diskSize="100"
 
-# Helper functions
-message() {
-    echo ""
-    echo "*******************************************************"
-    echo "        $1"
-    echo "*******************************************************"
-    echo ""
-}
+output=$(aws ec2 run-instances \
+    --dry-run \
+    --image-id $amiId \
+    --count 1 \
+    --instance-type $instanceType \
+    --key-name $keyName \
+    --security-group-ids $securityGroup \
+    --block-device-mappings "[{\"DeviceName\":\"/dev/sda1\",\"Ebs\":{\"VolumeSize\":$diskSize,\"DeleteOnTermination\":true}}]" \
+    2>&1)
 
-# Work functions
-installLibs() {
-    message "Installing libraries"
-    apt update
-    apt install build-essential -y
-    apt install git -y
-    apt install cmake -y
-    apt install debootstrap -y
-    apt install libunwind-dev -y
-    apt install squid-deb-proxy -y
-    /etc/init.d/squid-deb-proxy start
-}
+retVal=$?
+if [ $retVal -ne 0 ]; then
+    echo "Error starting EC2 instance: $output"
+    exit 1
+fi
 
-installGo() {
-    message "Installing Golang for build"
-    wget -O /root/go1.15.linux-amd64.tar.gz https://golang.org/dl/go1.15.linux-amd64.tar.gz
-    tar -C /usr/local -xzf /root/go1.15.linux-amd64.tar.gz
-    export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
-}
+instanceId=$(echo $output | jq -r .Instances[].InstanceId)
 
-setupBoring() {
-    message "Retrieving BoringSSL"
-    cd $GOPATH/src
-    mkdir boringssl.googlesource.com
-    cd boringssl.googlesource.com
+echo "Launched instance $instanceId"
 
-    git clone https://boringssl.googlesource.com/boringssl
-    cd boringssl
-    git checkout fips-20190808
+aws ec2 create-tags --resources $instanceId --tags "Key=Name,Value=Go Build Svr"
+echo "Tagged instance $instanceId as Go Build Svr"
 
-    message "Building BoringSSL"
-    mkdir build
-    cd build
-    cmake -DFIPS=1 -DCMAKE_BUILD_TYPE=Release ..
-    make
+while [ "$stateName" != "running" ]
+do
+    stateName=$(aws ec2 describe-instances --instance-ids $instanceId | jq -r .Reservations[].Instances[].State.Name)
+    echo "Instance is $stateName"
+    if [ "$stateName" != "running" ]; then
+        sleep 4
+    fi
+done
 
-    cd ../..
-    message "Creating BoringSSL archive"
-    tar --exclude '.git' -cJf boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz boringssl
-    mv boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz /root
-}
+publicIp=$(aws ec2 describe-instances --instance-ids $instanceId | jq -r .Reservations[].Instances[].NetworkInterfaces[].Association.PublicIp)
+echo "Instance ready with public IP $publicIp"
 
-setupBoringGo() {
-    message "Retrieving Golang+BoringSSL"
+while [ "$sshOk" != "0" ]
+do
+    echo "Attempting connection to $publicIp"
+    ssh -o ConnectTimeout=2 -oStrictHostKeyChecking=no ubuntu@${publicIp} "exit"
+    sshOk=$?
+    if [ "$sshOk" != "0" ]; then
+        echo "Connection timed out"
+        sleep 8
+    else
+        echo "Connection ready"
+    fi
+done
 
-    # Need SSH key to do this
-    cd $GOPATH/src
-    mkdir -p github.com
-    cd github.com
-    git clone git@github.com:TrustedKeep/go
-    cd go
-    git checkout tkgo1.15
+echo "Copying files"
+scp -oStrictHostKeyChecking=no ./build_remote.sh ubuntu@${publicIp}:
+scp -oStrictHostKeyChecking=no ~/.ssh/id_rsa* ubuntu@${publicIp}:
 
-    message "Building GoBoring crypto module"
-    cd src/crypto/internal/boring/build
-    ./build.sh
-
-    message "Building Golang tools"
-    cd $GOPATH/src/github.com/go/src
-    ./all.bash
-
-    message "Building dist package"
-    cd ../../
-
-    tar --exclude '.git' --exclude 'pkg/obj' -czvf $GOZIP go
-    mv $GOZIP /root
-    sha256sum /root/$GOZIP
-}
-
-installLibs
-installGo
-setupBoring
-setupBoringGo
+ssh -oStrictHostKeyChecking=no ubuntu@${publicIp} << EOF
+    sudo mv ./build_remote.sh /root
+    sudo mv id_rsa /root/.ssh/
+    sudo mv id_rsa.pub /root/.ssh/
+    sudo su -
+    chown root: /root/.ssh/*
+    echo "github.com,140.82.114.4 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" >> /root/.ssh/known_hosts
+    ./build_remote.sh
+    exit
+EOF
