@@ -17,21 +17,19 @@ message() {
 # Work functions
 installLibs() {
     message "Installing libraries"
-    apt update
-    apt install build-essential -y
-    apt install git -y
-    apt install cmake -y
-    apt install debootstrap -y
-    apt install libunwind-dev -y
-    apt install squid-deb-proxy -y
-    /etc/init.d/squid-deb-proxy start
+    apt-get update
+    apt-get install build-essential -y
+    apt-get install git -y
+    apt-get install cmake -y
+    apt-get install debootstrap -y
+    apt-get install libunwind-dev -y
+    apt-get install squid-deb-proxy -y
 }
 
 installGo() {
     message "Installing Golang for build"
     wget -O /root/go1.15.linux-amd64.tar.gz https://golang.org/dl/go1.15.linux-amd64.tar.gz
     tar -C /usr/local -xzf /root/go1.15.linux-amd64.tar.gz
-    export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 }
 
 setupBoring() {
@@ -83,7 +81,9 @@ setupBoringGo() {
     sha256sum /root/$GOZIP
 }
 
-installLibs
-installGo
-setupBoring
+# installLibs # should already be in AMI
+# installGo # should already be in AMI
+export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
+/etc/init.d/squid-deb-proxy start
+# setupBoring # should already be in AMI
 setupBoringGo
