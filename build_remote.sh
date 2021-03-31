@@ -2,7 +2,7 @@
 
 mkdir -p /root/sandbox/src
 
-export GOZIP=boringgo.1.15.9.tgz
+export GOZIP=boringgo.1.15.10.tgz
 export GOPATH=/root/sandbox
 
 # Helper functions
